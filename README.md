@@ -1,4 +1,4 @@
-# microtonal scale builder — for the OP–1 field
+# microtonal scale builder — for OP–1 field, OP-1, OP-Z 
 
 Explore microtonal & non‑octave tunings on the **Teenage Engineering OP–1 field**.
 
