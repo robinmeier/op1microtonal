@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microtonal Scale Builder — OP-1 Field</title>
+<style>
+  :root {
+    /* op-1 field "brushed aluminum" light theme */
+    --bg: #d4d5d7;        /* brushed silver body */
+    --bg2: #ffffff;       /* white control cards / inputs / slots */
+    --bg3: #ececed;       /* light hover */
+    --bg4: #e2e2e4;
+    --border: #c4c5c8;    /* hairline */
+    --border2: #b1b2b5;   /* darker hairline */
+    --text: #1a1a1c;      /* near-black */
+    --text2: #6b6c6f;     /* secondary */
+    --text3: #9a9b9e;     /* tertiary */
+    --green: #e8603c;     /* single orange accent (te encoder orange) */
+    --accent-soft: #fbe9e3;
+    --red: #d6453c;
+    --amber: #d4953a;
+    --mono: 'Helvetica Neue', 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html {
+    color: var(--text);
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    /* faint vertical brushing over a soft top-to-bottom metal gradient */
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.045) 0 1px, rgba(0,0,0,0.025) 1px 2px),
+      linear-gradient(180deg, #dcdde0 0%, #d0d1d4 55%, #c8c9cc 100%);
+    background-attachment: fixed;
+  }
+  body { min-height: 100vh; }
+
+  .header {
+    padding: 18px 28px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .header h1 { font-size: 14px; letter-spacing: 0.01em; text-transform: lowercase; font-weight: 600; }
+  .header span { font-size: 10px; color: var(--text2); letter-spacing: 0.02em; text-transform: lowercase; }
+
+  .panel { padding: 22px 28px; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    color: var(--text2);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .row:last-child { margin-bottom: 0; }
+  label.fld { font-size: 10px; color: var(--text2); letter-spacing: 0.06em; min-width: 86px; }
+  .hint { font-size: 9px; color: var(--text3); letter-spacing: 0.04em; }
+
+  input[type=number], input[type=text], select {
+    background: #f6f6f7;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 7px;
+  }
+  input[type=number]:focus, input[type=text]:focus, select:focus,
+  textarea:focus { outline: none; border-color: var(--green); background: #fff; }
+  input[type=number] { width: 92px; }
+  input[type=range] { accent-color: var(--green); }
+  select { cursor: pointer; }
+
+  .upload-zone {
+    border: 1px dashed var(--border2);
+    border-radius: 4px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    background: #f6f6f7;
+    transition: border-color 0.12s, background 0.12s;
+    margin-bottom: 10px;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--green); background: var(--accent-soft); }
+  .upload-zone.done { border-color: var(--green); border-style: solid; }
+  .upload-zone-icon { font-size: 18px; margin-bottom: 4px; color: var(--text3); }
+  .upload-zone.done .upload-zone-icon { color: var(--green); }
+  .upload-zone-label { font-size: 11px; color: var(--text2); }
+  .upload-zone.done .upload-zone-label { color: var(--text); }
+  .upload-zone-sub { font-size: 9px; color: var(--text3); margin-top: 3px; letter-spacing: 0.06em; }
+
+  textarea {
+    width: 100%; min-height: 120px; resize: vertical;
+    background: #f6f6f7; border: 1px solid var(--border2); border-radius: 4px;
+    color: var(--text); font-family: 'SF Mono', 'Menlo', 'Consolas', monospace; font-size: 10px; padding: 8px; line-height: 1.5;
+  }
+
+  .scale-info { font-size: 10px; color: var(--text2); line-height: 1.8; }
+  .scale-info b { color: var(--text); font-weight: 400; }
+  .scale-info .err { color: var(--red); }
+
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 5px;
+    margin-bottom: 18px;
+  }
+  .slot {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    min-height: 78px;
+    padding: 6px;
+    background: var(--bg2);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    user-select: none;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+  }
+  .slot:hover { border-color: var(--border2); background: var(--bg3); }
+  .slot.root { border-color: var(--green); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--green); }
+  .slot-num { font-size: 8px; color: var(--text3); letter-spacing: 0.1em; }
+  .slot-wave { flex: 1; width: 100%; min-height: 22px; display: block; }
+  .slot-deg { font-size: 9px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot-freq { font-size: 9px; color: var(--text3); }
+  .slot.root .slot-freq { color: var(--green); }
+
+  .bars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+  .bar-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; }
+  .bar-label { font-size: 10px; color: var(--text2); letter-spacing: 0.01em; text-transform: lowercase; font-weight: 600; margin-bottom: 6px; }
+  .bar-track { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--text2); border-radius: 2px; transition: width 0.2s, background 0.2s; }
+  .bar-fill.warn { background: var(--red); }
+  .bar-fill.ok { background: var(--green); }
+  .bar-val { font-size: 10px; color: var(--text); }
+
+  .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    padding: 7px 16px;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    background: var(--bg2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    text-transform: lowercase;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+  }
+  .btn:hover { background: var(--bg3); border-color: var(--text3); }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+  .btn.primary { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 1px 2px rgba(232,96,60,0.35); }
+  .btn.primary:hover { background: #d4502e; border-color: #d4502e; }
+  .status { font-size: 10px; color: var(--text2); letter-spacing: 0.02em; }
+  .status.ok { color: var(--green); }
+  .status.err { color: var(--red); }
+
+  .harm-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; align-items: end; }
+  .harm-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .harm-col input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 14px; height: 56px; }
+  .harm-col span { font-size: 8px; color: var(--text3); }
+
+  .divider { height: 1px; background: var(--border); margin: 18px 0; }
+  .cond { display: none; }
+  .cond.show { display: block; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Microtonal Scale Builder</h1>
+  <span>OP-1 field drum patch &nbsp;·&nbsp; 44.1 kHz &nbsp;·&nbsp; 16-bit &nbsp;·&nbsp; mono &nbsp;·&nbsp; 12 s &nbsp;·&nbsp; looped sustain</span>
+</div>
+
+<div class="panel">
+  <div class="grid2">
+    <!-- LEFT: scale -->
+    <div>
+      <div class="section-label">01 — scale (scala .scl)</div>
+      <div class="card">
+        <div class="row">
+          <label class="fld">preset</label>
+          <select id="presetSel">
+            <option value="">— pick a preset —</option>
+          </select>
+        </div>
+        <div class="row">
+          <label class="fld">folder</label>
+          <button class="btn" onclick="document.getElementById('sclFolder').click()">&#9636; load .scl folder</button>
+          <span class="hint" id="folderCount"></span>
+        </div>
+        <div class="row" id="folderRow" style="display:none">
+          <label class="fld">tuning</label>
+          <select id="folderSel" style="flex:1;min-width:160px"></select>
+        </div>
+        <input type="file" id="sclFolder" webkitdirectory directory multiple>
+        <div class="upload-zone" id="zoneScl"
+          onclick="document.getElementById('sclFile').click()">
+          <div class="upload-zone-icon" id="iconScl">&#8595;</div>
+          <div class="upload-zone-label" id="labelScl">drop or click to load a .scl file</div>
+          <div class="upload-zone-sub">scala scale file</div>
+        </div>
+        <input type="file" id="sclFile" accept=".scl,text/plain">
+        <div class="section-label" style="margin-top:6px">or paste / edit</div>
+        <textarea id="sclText" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" onclick="applySclText()">&#8635; parse text</button>
+        </div>
+        <div class="divider"></div>
+        <div class="scale-info" id="scaleInfo">no scale loaded.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: mapping + synth -->
+    <div>
+      <div class="section-label">02 — mapping</div>
+      <div class="card">
+        <div class="row">
+          <label class="fld">root freq</label>
+          <input type="number" id="rootHz" value="261.63" min="20" max="8000" step="0.01">
+          <span class="hint">Hz <span id="rootNote"></span></span>
+        </div>
+        <div class="row">
+          <label class="fld">root key</label>
+          <select id="rootKey"></select>
+          <span class="hint">the keyboard key that plays the root</span>
+        </div>
+        <div class="row">
+          <label class="fld">tone length</label>
+          <input type="range" id="toneLen" min="0.05" max="0.5" step="0.01" value="0.2" style="flex:1;min-width:120px">
+          <span class="hint"><span id="toneLenVal">0.20</span> s / key (loop)</span>
+        </div>
+        <div class="row">
+          <label class="fld">level</label>
+          <input type="range" id="level" min="-48" max="0" step="1" value="-14" style="flex:1;min-width:120px">
+          <span class="hint"><span id="levelVal">-14</span> dBFS / note <span class="hint">(headroom for polyphony)</span></span>
+        </div>
+      </div>
+
+      <div class="section-label">03 — synthesis</div>
+      <div class="card">
+        <div class="row">
+          <label class="fld">waveform</label>
+          <select id="waveform">
+            <option value="sine">sine</option>
+            <option value="triangle">triangle</option>
+            <option value="sawtooth">sawtooth</option>
+            <option value="square">square</option>
+            <option value="fm">fm (2-op)</option>
+            <option value="additive">custom additive</option>
+          </select>
+        </div>
+
+        <div class="cond" id="fmControls">
+          <div class="row">
+            <label class="fld">fm ratio</label>
+            <select id="fmRatio">
+              <option value="0.5|2">1/2</option>
+              <option value="1|1" selected>1</option>
+              <option value="1.5|2">3/2</option>
+              <option value="2|1">2</option>
+              <option value="2.5|2">5/2</option>
+              <option value="3|1">3</option>
+              <option value="4|1">4</option>
+            </select>
+            <span class="hint">mod : carrier</span>
+          </div>
+          <div class="row">
+            <label class="fld">fm depth</label>
+            <input type="range" id="fmDepth" min="0" max="10" step="0.1" value="2" style="flex:1;min-width:120px">
+            <span class="hint"><span id="fmDepthVal">2.0</span></span>
+          </div>
+        </div>
+
+        <div class="cond" id="additiveControls">
+          <div class="section-label" style="margin-bottom:8px">harmonic amplitudes (1–8)</div>
+          <div class="harm-grid" id="harmGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">24 keys — each rendered at its exact pitch · root key outlined</div>
+  <div class="slot-grid" id="slotGrid"></div>
+
+  <div class="bars">
+    <div class="bar-card">
+      <div class="bar-label">total duration</div>
+      <div class="bar-track"><div class="bar-fill ok" id="durBar" style="width:0%"></div></div>
+      <div class="bar-val" id="durVal">0.00 s / 12.00 s</div>
+    </div>
+    <div class="bar-card">
+      <div class="bar-label">scale</div>
+      <div class="bar-track"><div class="bar-fill ok" id="scaleBar" style="width:0%"></div></div>
+      <div class="bar-val" id="scaleBarVal">— notes / period</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="exportBtn" onclick="exportAif()" disabled>&#9660; export .aif</button>
+    <button class="btn" id="exportJsonBtn" onclick="exportJson()" disabled>&#9660; export .json</button>
+    <button class="btn" id="auditionBtn" onclick="auditionRoot()" disabled>&#9654; audition root</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="hint" id="kbdHint" style="margin-top:14px; line-height:1.7">
+    play on computer keyboard:
+    <b style="color:var(--text)">a w s e d r f g z h u j i k l p é</b>
+    = ascending scale steps (a = root) &nbsp;·&nbsp;
+    <b style="color:var(--text)">y / x</b> = octave down / up &nbsp;·&nbsp;
+    octave <b style="color:var(--green)" id="octDisplay">0</b>
+    <span style="color:var(--text3)">&nbsp;(keys are physical positions — works on any layout; click the page first if silent)</span>
+  </div>
+</div>
+
+<script>
+const SR = 44100;
+const MAX_DUR = 12.0;
+const TOTAL_FRAMES = SR * MAX_DUR;
+const MAX_VAL = 2147483648;
+const TAU = Math.PI * 2;
+
+// ---- presets -------------------------------------------------------------
+const PRESETS = {
+  "12-TET (equal temperament)":
+`! 12-tet.scl
+12 equal divisions of the octave
+ 12
+ 100.000
+ 200.000
+ 300.000
+ 400.000
+ 500.000
+ 600.000
+ 700.000
+ 800.000
+ 900.000
+ 1000.000
+ 1100.000
+ 1200.000`,
+  "Just intonation major (Ptolemy)":
+`! ji_major.scl
+Ptolemy intense diatonic / 5-limit JI major
+ 7
+ 9/8
+ 5/4
+ 4/3
+ 3/2
+ 5/3
+ 15/8
+ 2/1`,
+  "19-TET (equal temperament)":
+`! 19-tet.scl
+19 equal divisions of the octave
+ 19
+ 63.158
+ 126.316
+ 189.474
+ 252.632
+ 315.789
+ 378.947
+ 442.105
+ 505.263
+ 568.421
+ 631.579
+ 694.737
+ 757.895
+ 821.053
+ 884.211
+ 947.368
+ 1010.526
+ 1073.684
+ 1136.842
+ 1200.000`,
+  "Bohlen–Pierce equal (tritave)":
+`! bohlen-pierce.scl
+13 equal divisions of the tritave (3/1)
+ 13
+ 146.304
+ 292.608
+ 438.913
+ 585.217
+ 731.521
+ 877.825
+ 1024.130
+ 1170.434
+ 1316.738
+ 1463.042
+ 1609.347
+ 1755.651
+ 3/1`
+};
+
+// ---- state ---------------------------------------------------------------
+const state = {
+  scale: null,        // { description, count, degrees:[{factor,cents}], period, periodCents }
+  rootHz: 261.63,
+  rootKey: 12,
+  toneLen: 0.2,
+  peakDb: -14,
+  peakGain: Math.pow(10, -14 / 20),
+  waveform: 'sine',
+  fmRatio: 1, fmRatioQ: 1, fmDepth: 2,
+  harmonics: [1,0,0,0,0,0,0,0],
+  rendered: [],       // [{ freq, degree, cents, data:Float32Array }]
+  name: 'microtonal'
+};
+let audioCtx = null;
+function getAC() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR });
+  return audioCtx;
+}
+
+// ---- reused from opz-drum-kit-builder.html -------------------------------
+function toOp1Val(frame) {
+  return Math.floor((frame / TOTAL_FRAMES) * MAX_VAL / 512) * 512;
+}
+
+function buildMeta(starts, ends) {
+  function pad(arr, def) { const a = arr.slice(); while (a.length < 24) a.push(def); return a.slice(0, 24); }
+  return {
+    drum_version: 2, type: "drum", name: state.name || "microtonal", octave: 0,
+    pitch:    pad([], 0),
+    start:    pad(starts, 0),
+    end:      pad(ends, 0),
+    playmode: pad(Array(24).fill(28672), 28672),   // 28672 = loop
+    reverse:  pad(Array(24).fill(8192), 8192),     // 8192  = forward
+    volume:   pad(Array(24).fill(8192), 8192),     // 8192  = 0 dB
+    dyna_env: [0, 8192, 0, 8192, 0, 0, 0, 0],
+    fx_active: false, fx_type: "delay",
+    fx_params: [8000, 8000, 8000, 8000, 8000, 8000, 8000, 8000],
+    lfo_active: false, lfo_type: "tremolo",
+    lfo_params: [16000, 16000, 16000, 16000, 0, 0, 0, 0]
+  };
+}
+
+function encodeAiff(pcmFloat32, meta) {
+  const jsonStr = JSON.stringify(meta);
+  const jsonBytes = new TextEncoder().encode(jsonStr);
+  const applPayloadLen = 4 + jsonBytes.length;
+  const applPayloadPadded = applPayloadLen + (applPayloadLen % 2);
+  const numSamples = pcmFloat32.length;
+  const commSize = 18;
+  const ssndDataSize = numSamples * 2 + 8;
+  const applChunkTotal = 8 + applPayloadPadded;
+  const formSize = 4 + (8 + commSize) + applChunkTotal + (8 + ssndDataSize);
+  const buf = new ArrayBuffer(8 + formSize);
+  const dv = new DataView(buf);
+  let o = 0;
+  function str(s) { for (let i = 0; i < s.length; i++) dv.setUint8(o++, s.charCodeAt(i)); }
+  function u32(v) { dv.setUint32(o, v); o += 4; }
+  function u16(v) { dv.setUint16(o, v); o += 2; }
+  function i16(v) { dv.setInt16(o, v); o += 2; }
+  str('FORM'); u32(formSize); str('AIFF');
+  str('COMM'); u32(commSize);
+  u16(1); u32(numSamples); u16(16);
+  dv.setUint16(o, 0x400E); o += 2;
+  dv.setUint32(o, 0xAC440000); o += 4;
+  dv.setUint32(o, 0x00000000); o += 4;
+  str('APPL'); u32(applPayloadPadded);
+  str('op-1');
+  for (let i = 0; i < jsonBytes.length; i++) dv.setUint8(o++, jsonBytes[i]);
+  // pad APPL payload to an even length ('op-1' begins at an even offset, so
+  // aligning the absolute offset is equivalent to padding the payload).
+  while (o % 2 !== 0) dv.setUint8(o++, 0);
+  str('SSND'); u32(ssndDataSize);
+  u32(0); u32(0);
+  for (let i = 0; i < numSamples; i++) {
+    const v = Math.max(-1, Math.min(1, pcmFloat32[i]));
+    i16(Math.round(v * 32767));
+  }
+  return buf;
+}
+
+function drawWaveArr(canvas, data) {
+  const W = canvas.offsetWidth || 80;
+  const H = canvas.offsetHeight || 22;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  if (!data || !data.length) return;
+  const step = Math.max(1, Math.floor(data.length / W));
+  ctx.strokeStyle = '#55565a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x < W; x++) {
+    let min = 1, max = -1;
+    for (let j = 0; j < step; j++) {
+      const v = data[x * step + j] || 0;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const y1 = ((1 - max) / 2) * H;
+    const y2 = ((1 - min) / 2) * H;
+    ctx.lineTo(x, y1);
+    ctx.lineTo(x, y2);
+  }
+  ctx.stroke();
+}
+
+function downloadBuf(arrayBuf, filename, mime) {
+  const blob = new Blob([arrayBuf], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
+}
+function downloadText(text, filename) { downloadBuf(new TextEncoder().encode(text), filename, 'application/json'); }
+function setStatus(msg, cls) { const el = document.getElementById('status'); el.textContent = msg; el.className = 'status' + (cls ? ' ' + cls : ''); }
+
+// ---- scala parser --------------------------------------------------------
+function parsePitch(s) {
+  const tok = s.trim().split(/\s+/)[0];
+  if (tok.indexOf('.') >= 0) {
+    const c = parseFloat(tok);
+    if (!isFinite(c)) throw new Error('bad cents value: ' + tok);
+    return { factor: Math.pow(2, c / 1200), cents: c };
+  }
+  let num, den;
+  if (tok.indexOf('/') >= 0) { const p = tok.split('/'); num = parseFloat(p[0]); den = parseFloat(p[1]); }
+  else { num = parseFloat(tok); den = 1; }
+  if (!isFinite(num) || !isFinite(den) || den === 0 || num <= 0) throw new Error('bad ratio: ' + tok);
+  const factor = num / den;
+  return { factor: factor, cents: 1200 * Math.log2(factor) };
+}
+
+function parseScl(text) {
+  const lines = [];
+  for (const l of text.split(/\r?\n/)) { if (l.trim().startsWith('!')) continue; lines.push(l); }
+  if (lines.length < 2) throw new Error('file too short');
+  const description = lines[0].trim();
+  const count = parseInt(lines[1].trim(), 10);
+  if (!(count > 0)) throw new Error('invalid note count on line 2');
+  const entries = [];
+  let idx = 2;
+  while (entries.length < count && idx < lines.length) {
+    const raw = lines[idx].trim(); idx++;
+    if (raw === '') continue;
+    entries.push(parsePitch(raw));
+  }
+  if (entries.length < count) throw new Error('expected ' + count + ' pitches, found ' + entries.length);
+  const degrees = [{ factor: 1, cents: 0 }];
+  for (let k = 0; k < count - 1; k++) degrees.push(entries[k]);
+  return {
+    description: description,
+    count: count,
+    degrees: degrees,
+    period: entries[count - 1].factor,
+    periodCents: entries[count - 1].cents
+  };
+}
+
+// ---- synthesis -----------------------------------------------------------
+function sampleAt(wf, ph, harmonics) {
+  // ph = number of fundamental cycles elapsed (float)
+  let frac = ph - Math.floor(ph);
+  switch (wf) {
+    case 'sine':     return Math.sin(TAU * ph);
+    case 'triangle':
+      if (frac < 0.25) return 4 * frac;
+      if (frac < 0.75) return 2 - 4 * frac;
+      return 4 * frac - 4;
+    case 'sawtooth': { let fr = ph + 0.5; fr -= Math.floor(fr); return 2 * fr - 1; }
+    case 'square':   return frac < 0.5 ? 1 : -1;
+    case 'fm':       return Math.sin(TAU * ph + state.fmDepth * Math.sin(TAU * state.fmRatio * ph));
+    case 'additive': {
+      let s = 0;
+      for (let h = 0; h < harmonics.length; h++) {
+        const a = harmonics[h];
+        if (a) s += a * Math.sin(TAU * (h + 1) * ph);
+      }
+      return s;
+    }
+  }
+  return 0;
+}
+
+function renderSlice(freq) {
+  const wf = state.waveform;
+  const q = (wf === 'fm') ? state.fmRatioQ : 1;
+  let K = Math.max(1, Math.round(state.toneLen * freq));   // whole fundamental cycles
+  if (q > 1) K = Math.ceil(K / q) * q;
+  let len = Math.round(K * SR / freq);
+  if (len < 2) len = 2;
+  const f = K * SR / len;        // exact integer cycles over len -> seamless loop
+  const data = new Float32Array(len);
+  const cyclesPerFrame = f / SR; // = K / len
+  for (let n = 0; n < len; n++) {
+    data[n] = sampleAt(wf, n * cyclesPerFrame, state.harmonics);
+  }
+  let peak = 0;
+  for (let n = 0; n < len; n++) { const a = Math.abs(data[n]); if (a > peak) peak = a; }
+  if (peak > 0) { const g = state.peakGain / peak; for (let n = 0; n < len; n++) data[n] *= g; }
+  return data;
+}
+
+function freqForKey(i) {
+  const sc = state.scale;
+  const N = sc.count;
+  const off = i - state.rootKey;
+  const oct = Math.floor(off / N);
+  const degree = ((off % N) + N) % N;
+  const factor = sc.degrees[degree].factor;
+  return { freq: state.rootHz * Math.pow(sc.period, oct) * factor, degree: degree, cents: sc.degrees[degree].cents };
+}
+
+function renderAll() {
+  state.rendered = [];
+  if (!state.scale) return;
+  for (let i = 0; i < 24; i++) {
+    const k = freqForKey(i);
+    state.rendered.push({ freq: k.freq, degree: k.degree, cents: k.cents, data: renderSlice(k.freq) });
+  }
+}
+
+// ---- UI ------------------------------------------------------------------
+function noteName(hz) {
+  if (!(hz > 0)) return '';
+  const midi = Math.round(69 + 12 * Math.log2(hz / 440));
+  const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const cents = Math.round((69 + 12 * Math.log2(hz / 440) - midi) * 100);
+  const sign = cents >= 0 ? '+' : '';
+  return '≈ ' + names[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1) + (cents ? ' ' + sign + cents + '¢' : '');
+}
+
+function buildSlots() {
+  const grid = document.getElementById('slotGrid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 24; i++) {
+    const el = document.createElement('div');
+    el.className = 'slot' + (i === state.rootKey ? ' root' : '');
+    const r = state.rendered[i];
+    el.innerHTML = '<span class="slot-num">' + String(i + 1).padStart(2, '0') + (i === state.rootKey ? ' · root' : '') + '</span>';
+    if (r) {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'slot-wave';
+      el.appendChild(canvas);
+      const deg = document.createElement('div');
+      deg.className = 'slot-deg';
+      deg.textContent = 'd' + r.degree + ' · ' + r.cents.toFixed(0) + '¢';
+      el.appendChild(deg);
+      const fr = document.createElement('div');
+      fr.className = 'slot-freq';
+      fr.textContent = r.freq.toFixed(2) + ' Hz';
+      el.appendChild(fr);
+      el.title = noteName(r.freq);
+      el.addEventListener('click', function () { auditionFreq(r.freq); });
+      requestAnimationFrame(function () { drawWaveArr(canvas, r.data); });
+    } else {
+      const e = document.createElement('div');
+      e.className = 'slot-freq';
+      e.textContent = '—';
+      el.appendChild(e);
+    }
+    grid.appendChild(el);
+  }
+}
+
+function updateBars() {
+  let totalFrames = 0;
+  for (const r of state.rendered) totalFrames += r.data.length;
+  const total = totalFrames / SR;
+  const over = total > MAX_DUR;
+  document.getElementById('durBar').style.width = Math.min(total / MAX_DUR * 100, 100) + '%';
+  document.getElementById('durBar').className = 'bar-fill ' + (over ? 'warn' : 'ok');
+  document.getElementById('durVal').textContent = total.toFixed(2) + ' s / 12.00 s';
+
+  const sc = state.scale;
+  if (sc) {
+    document.getElementById('scaleBar').style.width = '100%';
+    document.getElementById('scaleBarVal').textContent = sc.count + ' notes / ' + sc.periodCents.toFixed(1) + '¢ period';
+  }
+  const ok = !!sc && !over;
+  document.getElementById('exportBtn').disabled = !ok;
+  document.getElementById('exportJsonBtn').disabled = !ok;
+  document.getElementById('auditionBtn').disabled = !sc;
+  if (over) setStatus('total exceeds 12 s — shorten tone length', 'err');
+  else setStatus('');
+}
+
+function showScaleInfo() {
+  const el = document.getElementById('scaleInfo');
+  const sc = state.scale;
+  if (!sc) { el.innerHTML = 'no scale loaded.'; return; }
+  let degs = sc.degrees.map(function (d, i) { return 'd' + i + ' ' + d.cents.toFixed(2) + '¢'; }).join(' &nbsp; ');
+  el.innerHTML =
+    '<b>' + (sc.description || '(no description)') + '</b><br>' +
+    '<b>' + sc.count + '</b> notes per period &nbsp; · &nbsp; period <b>' + sc.periodCents.toFixed(2) + '¢</b> (' + sc.period.toFixed(5) + '×)<br>' +
+    '<span class="hint">' + degs + '</span>';
+}
+
+function refresh() {
+  // pull values from state, rerender, redraw
+  renderAll();
+  buildSlots();
+  updateBars();
+  showScaleInfo();
+  document.getElementById('rootNote').textContent = noteName(state.rootHz);
+}
+
+function loadScaleFromText(text, sourceName) {
+  try {
+    const sc = parseScl(text);
+    state.scale = sc;
+    state.name = (sourceName || sc.description || 'microtonal').replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '_').slice(0, 24) || 'microtonal';
+    document.getElementById('sclText').value = text;
+    refresh();
+    setStatus('loaded scale: ' + (sc.description || sourceName || ''), 'ok');
+  } catch (e) {
+    state.scale = null;
+    document.getElementById('scaleInfo').innerHTML = '<span class="err">parse error: ' + e.message + '</span>';
+    updateBars();
+    setStatus('scl parse error', 'err');
+  }
+}
+
+function applySclText() { loadScaleFromText(document.getElementById('sclText').value, ''); }
+
+// audition (sustained loop preview in-browser)
+let auditionNode = null;
+function stopAudition() { if (auditionNode) { try { auditionNode.stop(); } catch (e) {} auditionNode = null; } }
+function auditionFreq(freq) {
+  stopAudition();
+  const ac = getAC();
+  const data = renderSlice(freq);
+  const buf = ac.createBuffer(1, data.length, SR);
+  buf.copyToChannel(data, 0);
+  const src = ac.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  const g = ac.createGain(); g.gain.value = 0.5;
+  src.connect(g); g.connect(ac.destination);
+  src.start();
+  auditionNode = src;
+  setTimeout(stopAudition, 1500);
+}
+function auditionRoot() { if (state.scale) auditionFreq(state.rootHz); }
+
+// ---- computer-keyboard playing -------------------------------------------
+// Ordered by ascending scale step (step 0 = root). Matched on physical key
+// position (event.code) so the same keys work on any keyboard layout. The
+// Swiss QWERTZ labels are: a w s e d r f g z h u j i k l p é.
+const KEY_STEPS = ['KeyA','KeyW','KeyS','KeyE','KeyD','KeyR','KeyF','KeyG','KeyY',
+                   'KeyH','KeyU','KeyJ','KeyI','KeyK','KeyL','KeyP','Semicolon'];
+const OCT_DOWN = 'KeyZ';  // Swiss 'y'
+const OCT_UP   = 'KeyX';  // Swiss 'x'
+let kbdOctave = 0;
+const activeVoices = {};  // code -> { src, g }
+
+function stepFreq(step) {
+  const sc = state.scale; if (!sc) return null;
+  const N = sc.count;
+  const abs = step + kbdOctave * N;
+  const oct = Math.floor(abs / N);
+  const degree = ((abs % N) + N) % N;
+  return state.rootHz * Math.pow(sc.period, oct) * sc.degrees[degree].factor;
+}
+function updateOct() {
+  const el = document.getElementById('octDisplay');
+  if (el) el.textContent = (kbdOctave > 0 ? '+' : '') + kbdOctave;
+}
+function kbdNoteOn(code) {
+  const idx = KEY_STEPS.indexOf(code);
+  if (idx < 0 || activeVoices[code]) return;
+  const f = stepFreq(idx); if (!f) return;
+  const ac = getAC(); if (ac.state === 'suspended') ac.resume();
+  const data = renderSlice(f);
+  const buf = ac.createBuffer(1, data.length, SR);
+  buf.copyToChannel(data, 0);
+  const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+  const g = ac.createGain(); g.gain.value = 0.8;
+  src.connect(g); g.connect(ac.destination); src.start();
+  activeVoices[code] = { src: src, g: g };
+}
+function kbdNoteOff(code) {
+  const v = activeVoices[code]; if (!v) return;
+  delete activeVoices[code];
+  const ac = getAC();
+  v.g.gain.setTargetAtTime(0, ac.currentTime, 0.012);  // short release, no click
+  setTimeout(function () { try { v.src.stop(); } catch (e) {} }, 120);
+}
+function stopAllVoices() { for (const c in activeVoices) kbdNoteOff(c); }
+function isTypingTarget(t) { return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'); }
+
+document.addEventListener('keydown', function (e) {
+  if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === OCT_DOWN) { kbdOctave = Math.max(-4, kbdOctave - 1); updateOct(); e.preventDefault(); return; }
+  if (e.code === OCT_UP)   { kbdOctave = Math.min(4, kbdOctave + 1);  updateOct(); e.preventDefault(); return; }
+  if (KEY_STEPS.indexOf(e.code) >= 0) { if (!e.repeat) kbdNoteOn(e.code); e.preventDefault(); }
+});
+document.addEventListener('keyup', function (e) {
+  if (KEY_STEPS.indexOf(e.code) >= 0) kbdNoteOff(e.code);
+});
+window.addEventListener('blur', stopAllVoices);
+
+// ---- export --------------------------------------------------------------
+let lastMeta = null;
+function buildPatch() {
+  const combined = new Float32Array(TOTAL_FRAMES);
+  const starts = [], ends = [];
+  let pos = 0;
+  for (let i = 0; i < 24; i++) {
+    const d = state.rendered[i].data;
+    starts.push(toOp1Val(pos));
+    const len = Math.min(d.length, TOTAL_FRAMES - pos);
+    combined.set(d.subarray(0, len), pos);
+    ends.push(toOp1Val(pos + len) - 1);
+    pos += len;
+  }
+  const meta = buildMeta(starts, ends);
+  return { combined: combined, meta: meta };
+}
+
+function exportAif() {
+  if (!state.scale) return;
+  try {
+    setStatus('rendering...', '');
+    renderAll();
+    const p = buildPatch();
+    lastMeta = p.meta;
+    downloadBuf(encodeAiff(p.combined, p.meta), state.name + '.aif', 'audio/aiff');
+    setStatus('exported ' + state.name + '.aif', 'ok');
+  } catch (e) {
+    setStatus('error: ' + e.message, 'err');
+  }
+}
+function exportJson() {
+  if (!state.scale) return;
+  renderAll();
+  lastMeta = buildPatch().meta;
+  downloadText(JSON.stringify(lastMeta, null, 2), state.name + '_meta.json');
+  setStatus('exported .json', 'ok');
+}
+
+// ---- wiring --------------------------------------------------------------
+function buildRootKeySelect() {
+  const sel = document.getElementById('rootKey');
+  for (let i = 0; i < 24; i++) {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = 'key ' + String(i + 1).padStart(2, '0');
+    if (i === state.rootKey) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+function buildPresetSelect() {
+  const sel = document.getElementById('presetSel');
+  for (const name in PRESETS) {
+    const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o);
+  }
+}
+function buildHarmGrid() {
+  const grid = document.getElementById('harmGrid');
+  grid.innerHTML = '';
+  for (let h = 0; h < 8; h++) {
+    const col = document.createElement('div'); col.className = 'harm-col';
+    const inp = document.createElement('input');
+    inp.type = 'range'; inp.min = '0'; inp.max = '1'; inp.step = '0.01'; inp.value = String(state.harmonics[h]);
+    inp.addEventListener('input', function () { state.harmonics[h] = parseFloat(inp.value); refresh(); });
+    const lab = document.createElement('span'); lab.textContent = (h + 1);
+    col.appendChild(inp); col.appendChild(lab); grid.appendChild(col);
+  }
+}
+function updateCondPanels() {
+  document.getElementById('fmControls').classList.toggle('show', state.waveform === 'fm');
+  document.getElementById('additiveControls').classList.toggle('show', state.waveform === 'additive');
+}
+
+document.getElementById('presetSel').addEventListener('change', function () {
+  if (this.value && PRESETS[this.value]) loadScaleFromText(PRESETS[this.value], this.value);
+});
+
+// folder of .scl files -> dropdown
+let folderScales = [];   // sorted [{ label, name, text }]
+document.getElementById('sclFolder').addEventListener('change', function () {
+  const files = Array.from(this.files || []).filter(function (f) { return /\.scl$/i.test(f.name); });
+  this.value = '';
+  if (!files.length) { document.getElementById('folderCount').textContent = 'no .scl files in folder'; return; }
+  document.getElementById('folderCount').textContent = 'reading ' + files.length + ' files…';
+  folderScales = [];
+  let pending = files.length;
+  function done() { if (--pending === 0) populateFolderSel(); }
+  files.forEach(function (f) {
+    const r = new FileReader();
+    r.onload = function (e) { folderScales.push({ label: f.webkitRelativePath || f.name, name: f.name, text: e.target.result }); done(); };
+    r.onerror = done;
+    r.readAsText(f);
+  });
+});
+function populateFolderSel() {
+  folderScales.sort(function (a, b) { return a.label.localeCompare(b.label); });
+  const sel = document.getElementById('folderSel');
+  sel.innerHTML = '<option value="">— ' + folderScales.length + ' tunings —</option>';
+  folderScales.forEach(function (s, i) {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = s.label.replace(/\.scl$/i, '');
+    sel.appendChild(o);
+  });
+  document.getElementById('folderRow').style.display = folderScales.length ? '' : 'none';
+  document.getElementById('folderCount').textContent = folderScales.length + ' .scl files loaded';
+}
+document.getElementById('folderSel').addEventListener('change', function () {
+  if (this.value === '') return;
+  const s = folderScales[parseInt(this.value, 10)];
+  if (s) loadScaleFromText(s.text, s.name);
+});
+document.getElementById('sclFile').addEventListener('change', function () {
+  const f = this.files[0]; if (!f) return;
+  document.getElementById('labelScl').textContent = f.name;
+  document.getElementById('iconScl').textContent = 'OK';
+  document.getElementById('zoneScl').classList.add('done');
+  const r = new FileReader();
+  r.onload = function (e) { loadScaleFromText(e.target.result, f.name); };
+  r.readAsText(f);
+  this.value = '';
+});
+(function () {
+  const z = document.getElementById('zoneScl');
+  z.addEventListener('dragover', function (e) { e.preventDefault(); z.classList.add('drag-over'); });
+  z.addEventListener('dragleave', function () { z.classList.remove('drag-over'); });
+  z.addEventListener('drop', function (e) {
+    e.preventDefault(); z.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0]; if (!f) return;
+    document.getElementById('labelScl').textContent = f.name;
+    document.getElementById('iconScl').textContent = 'OK';
+    z.classList.add('done');
+    const r = new FileReader();
+    r.onload = function (ev) { loadScaleFromText(ev.target.result, f.name); };
+    r.readAsText(f);
+  });
+})();
+
+document.getElementById('rootHz').addEventListener('input', function () {
+  const v = parseFloat(this.value); if (isFinite(v) && v > 0) { state.rootHz = v; refresh(); }
+});
+document.getElementById('rootKey').addEventListener('change', function () { state.rootKey = parseInt(this.value, 10); refresh(); });
+document.getElementById('toneLen').addEventListener('input', function () {
+  state.toneLen = parseFloat(this.value);
+  document.getElementById('toneLenVal').textContent = state.toneLen.toFixed(2);
+  refresh();
+});
+document.getElementById('level').addEventListener('input', function () {
+  state.peakDb = parseFloat(this.value);
+  state.peakGain = Math.pow(10, state.peakDb / 20);
+  document.getElementById('levelVal').textContent = state.peakDb;
+  refresh();
+});
+document.getElementById('waveform').addEventListener('change', function () {
+  state.waveform = this.value; updateCondPanels(); refresh();
+});
+document.getElementById('fmRatio').addEventListener('change', function () {
+  const p = this.value.split('|'); state.fmRatio = parseFloat(p[0]); state.fmRatioQ = parseInt(p[1], 10); refresh();
+});
+document.getElementById('fmDepth').addEventListener('input', function () {
+  state.fmDepth = parseFloat(this.value);
+  document.getElementById('fmDepthVal').textContent = state.fmDepth.toFixed(1);
+  refresh();
+});
+
+// ---- init ----------------------------------------------------------------
+buildRootKeySelect();
+buildPresetSelect();
+buildHarmGrid();
+updateCondPanels();
+loadScaleFromText(PRESETS['12-TET (equal temperament)'], '12-TET (equal temperament)');
+</script>
+</body>
+</html>
